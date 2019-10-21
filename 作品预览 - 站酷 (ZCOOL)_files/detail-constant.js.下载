@@ -1,0 +1,21 @@
+/**
+ * Created by zsj on 16-12-22.
+ */
+
+var detailsMainDomain = "zcool.com.cn";
+if (typeof (zMainDomain) != 'undefined' && zMainDomain.trim() != '') {
+    detailsMainDomain = zMainDomain;
+}
+var detailsMyDomain = "my.zcool.com.cn";
+if (typeof (zMyDomain) != 'undefined' && zMyDomain.trim() != '') {
+    detailsMyDomain = zMyDomain;
+}
+
+var API_STATUS = {
+    SUCCESS: 0
+};
+
+var DETAIL_OBJECT = {
+    objectId: $('#dataInput').attr('data-objid'),
+    objectType: $('#dataInput').attr('data-objtype')
+};

@@ -1,0 +1,542 @@
+"use strict";
+
+function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
+
+var creatorId = $("input[name='creator']").val();
+
+//更新推荐状态 | 更新收藏状态 | 更新关注(批量)状态 | 更新评论状态
+function doUpdatePageAllStatus() {
+  //每个页面自定义
+  ZcRecommend.recommendStatus(function () {
+    $('#sidebar-recommend').removeClass("normal").addClass("active");
+  });
+  console.log("更新推荐状态");
+  ZcFolder.favStatus();
+  console.log("更新收藏状态");
+  if (getUid() !== creatorId) {
+    getFocusStatus(creatorId, 1, $('.follow-box .attention'), settingWorkdetailsFollow);
+    console.log("更新关注(批量)状态");
+  } else {
+    $('.js-fixed-attention').addClass('hide');
+  }
+  loginedUpdateCommentsTextarea();
+}
+
+function settingWorkdetailsFollow(followStatus, followBtn) {
+  if (followStatus == 1) {
+    $(".attention").addClass('following').removeClass('notfollow');
+
+    $(".follow-box .attention").addClass('btn-default-secondary').removeClass('btn-default-main');
+    $(".follow-box .attention").val(messagesWeb.common_followed).attr('title', messagesWeb.common_followed_title);
+
+    $(".js-detail-show-card .js-fixed-attention").text(messagesWeb.common_followed).removeClass('zcool-link-color').addClass('cursor-pointer c-999');
+  } else if (followStatus == 2) {
+    $(".attention").removeClass('following').removeClass('notfollow');
+
+    $(".follow-box .attention").addClass('btn-default-secondary').removeClass('btn-default-main');
+    $(".follow-box .attention").val(messagesWeb.common_mutual_concern).attr('title', messagesWeb.common_mutual_concern_title);
+
+    $(".js-detail-show-card .js-fixed-attention").text(messagesWeb.common_mutual_concern).removeClass('zcool-link-color').addClass('cursor-pointer c-999');
+  } else if (followStatus == 3 || followStatus == 0) {
+
+    $(".attention").addClass('notfollow').removeClass('following');
+
+    $(".follow-box .attention").removeClass('btn-default-secondary').addClass('btn-default-main');
+    $(".follow-box .attention").val(messagesWeb.common_follow).attr('title', messagesWeb.common_follow_title);
+
+    $(".js-detail-show-card .js-fixed-attention").text(messagesWeb.common_follow).removeClass('cursor-pointer c-999').addClass('zcool-link-color');
+  } else {
+    alert("error2");
+    // 不存在这个关注状态
+    pageToastFail(messagesWeb.common_no_state_concern);
+  }
+  cancelLoadingFocusDis(followBtn);
+}
+
+var rightKey;
+titleTips($(".no-right-key"), rightKey, 0, 25);
+function titleTips(targetObj, rightKey, x, y) {
+  var x = x;
+  var y = y;
+  var tooltip, myTitle;
+  var tim;
+  targetObj.on('mousedown', function (oEvent) {
+    if (!oEvent) oEvent = window.event;
+    if (oEvent.button == 2) {
+      if ($('.picture-tips')) {
+        $('.picture-tips').remove();
+      }
+      clearTimeout(tim);
+      myTitle = $(this).attr('data-info');
+      if (rightKey) {
+        tooltip = '<div class="picture-tips">' + rightKey + '</div>';
+      } else {
+        tooltip = '<div class="picture-tips">' + $(this).attr('data-info') + '</div>';
+      }
+
+      $("body").append(tooltip);
+      $(".picture-tips").css({
+        left: oEvent.pageX + 10,
+        top: oEvent.pageY + 20
+      });
+      tim = setTimeout(function () {
+        $(".picture-tips").css({
+          display: 'none'
+        });
+      }, 1800);
+    } else {
+      $('.picture-tips').hide();
+    }
+  });
+}
+
+$('.js-detail-show-card').showCardInfo($('.js-detail-show-card .showMemberCard'));
+// $('.js-detail-username').showCardInfo($('.js-detail-show-card .showMemberCard'))
+
+$('.follow-box, .js-detail-show-card').on('click', '.attention', function () {
+  attentionClickAfterCaozuo($(this), function (followStatus, followBtn) {
+    settingWorkdetailsFollow(followStatus, followBtn);
+  }, function () {
+    if (getUid() === creatorId) {
+      $('.js-fixed-attention').addClass('hide');
+    }
+
+    doUpdatePageAllStatus();
+  });
+});
+
+// $('.js-detail-show-card').on('click', '.attention', function() {
+//   attentionClickAfterCaozuo($(this), function(followStatus, followBtn) {
+
+//     settingFollow(followStatus, $(".follow-box .attention"))
+//     $('.js-detail-show-card .attention').text()
+//   }, function() {
+//     doUpdatePageAllStatus()
+//   })
+// })
+
+function photoInfoEvent() {
+  $('.photo-box').on('mouseover', function () {
+    $(this).siblings('.photo-info').toggleClass('rubberBand');
+    var imgId = $(this).attr("data-img-id");
+    var exifInfo = $("#exif_" + imgId).attr("exif");
+    var exifDom = getExif(exifInfo);
+    $("#exif_" + imgId).html(exifDom);
+  });
+
+  $('.photo-box').on('mouseout', function () {
+    $(this).siblings('.photo-info').toggleClass('rubberBand');
+  });
+}
+photoInfoEvent();
+
+/* 这张照片没有Exif信息，详情可通过评论或私信咨询作者
+品牌：
+型号：
+镜头：
+光圈：
+快门：
+焦距：
+ISO：
+曝光补偿：
+拍摄时间
+*/
+function getExif(va1) {
+  if (va1 == "" || va1 == "{}") {
+    return "<p><span class='info-content'>" + messagesWeb.workDetails.photo_info + "</span></p>";
+  } else {
+    var json = eval("(" + va1 + ")");
+    var dt = "<p><span class='info-name'>" + messagesWeb.workDetails.photo_info_brand + "</span><span class='info-content'>" + (json.make == undefined ? "-" : json.make) + "</span></p>" + "<p><span class='info-name'>" + messagesWeb.workDetails.photo_info_model + "</span><span class='info-content'>" + (json.model == undefined ? "-" : json.model) + "</span></p>" + "<p><span class='info-name'>" + messagesWeb.workDetails.photo_info_lens + "</span><span class='info-content'>" + (json.lens == undefined ? "-" : json.lens) + "</span></p>" + "<p><span class='info-name'>" + messagesWeb.workDetails.photo_info_aperture + "</span><span class='info-content'>" + (json.FNumber == undefined ? "-" : json.FNumber) + "</span></p>" + "<p><span class='info-name'>" + messagesWeb.workDetails.photo_info_shutter + "</span><span class='info-content'>" + (json.exposure == undefined ? "-" : json.exposure) + "</span></p>" + "<p><span class='info-name'>" + messagesWeb.workDetails.photo_info_focal_length + "</span><span class='info-content'>" + (json.focal == undefined ? "-" : json.focal) + "</span></p>" + "<p><span class='info-name'>" + messagesWeb.workDetails.photo_info_ISO + "</span><span class='info-content'>" + (json.ISO == undefined ? "-" : json.ISO) + "</span></p>" + "<p><span class='info-name'>" + messagesWeb.workDetails.photo_info_exposure_compensation + "</span><span class='info-content'>" + (json.EV == undefined ? "-" : json.EV) + "</span></p>" + "<p><span class='info-name'>" + messagesWeb.workDetails.photo_info_filming_time + "</span><span class='info-content'>" + (json.date == undefined ? "-" : json.date) + "</span></p>";
+    return dt;
+  }
+}
+
+var detailBottomRelatedData = {};
+
+function getUserOthProSuccessCallback(data) {
+  var workShowNummer = 10;
+  var otherList = null;
+  var objectId = $('#dataInput').attr('data-objid');
+  var objectType = $('#dataInput').attr('data-objtype');
+  if (data.code == 0) {
+    var spliceContent = data.data.slice(0, workShowNummer);
+
+    if (data.data.length < workShowNummer) {
+      var detailBottomRelatedCount = 4;
+      // 此次请求的数据的数量
+      var user_like_toRequestCount = workShowNummer - data.data.length + detailBottomRelatedCount;
+      // 此次展示的数据的数量
+      var user_like_toShowCount = workShowNummer - data.data.length;
+
+      $.ajax({
+        type: "GET",
+        xhrFields: {
+          withCredentials: true
+        },
+        crossDomain: true,
+        headers: {
+          "X-Requested-With": "XMLHttpRequest"
+        },
+        dataType: "json",
+        url: proMainZDomain + "/content/relatedRecommend.json?pageSize=" + user_like_toRequestCount,
+        data: { objectId: objectId, objectType: objectType },
+        success: function success(datas) {
+          if (datas.code == 0) {
+            var relatedData = jQuery.extend(true, {}, datas);
+            relatedData.data = relatedData.data.splice(0, user_like_toShowCount);
+
+            var allData = { data: [].concat(_toConsumableArray(spliceContent), _toConsumableArray(relatedData.data)) };
+
+            var zid = $.cookie("zid");
+            var uid = getUid();
+            var ids = "";
+
+            $.each(relatedData.data, function (i, item) {
+              if (i < user_like_toShowCount) {
+                if (i > 0) {
+                  ids += ",";
+                }
+                ids += item.id + "_" + item.objectType + "_" + item.trackCode;
+              }
+            });
+
+            new Image().src = serverZLog + "/view.gif?t=detail_user_likeContent&ids=" + ids + "&vi=" + vi + "&ti=" + new Date().getTime() + "&zid=" + zid + "&uid=" + uid;
+
+            var allWorks = template('other-work', allData);
+            $('#space-item-swiper ul').append(allWorks);
+            otherWorksSwiperInit();
+
+            detailBottomRelatedData = jQuery.extend(true, {}, datas);
+            detailBottomRelatedData.data = detailBottomRelatedData.data.splice(user_like_toShowCount, detailBottomRelatedCount);
+          } else {}
+          if (data.data && data.data.length === 0) {
+            $(".js-other-work-wrap").remove();
+          }
+        }
+      });
+    } else {
+      var otherWorks = template('other-work', { data: spliceContent });
+      $('#space-item-swiper ul').append(otherWorks);
+      otherWorksSwiperInit();
+    }
+  }
+}
+
+function otherWorksSwiperInit() {
+  var mySwiper = new Swiper('#space-item-swiper', {
+    slidesPerView: 'auto',
+    spaceBetween: 10,
+    prevButton: '.swiper-button-prev',
+    nextButton: '.swiper-button-next'
+  });
+}
+
+var contentImagePage = 2;
+var isImagesLoading = false;
+
+var doLoadWorklist = function doLoadWorklist() {
+  var showContent = location.pathname.indexOf('/preview/') !== -1 ? '/work/content/preview' : '/work/content/show';
+
+  if (!isImagesLoading) {
+    isImagesLoading = true;
+
+    $('.js-work-content').append(LoaddingDom);
+
+    ZAjax('get', "" + proMainZDomain + showContent + "?p=" + contentImagePage + "&objectId=" + ObjId).then(function (res) {
+      if (res.code === 0) {
+        var _res$data = res.data,
+            product = _res$data.product,
+            allImageList = _res$data.allImageList;
+
+
+        if (contentImagePage >= Math.ceil(allImageList.length / 10)) {
+          $('#zcoolCommPage').remove();
+        }
+
+        contentImagePage++;
+
+        product.productImages.map(function (item) {
+          if (item.url.includes('.gif')) {
+            item.url = item.url;
+          } else if (item.url.includes('.png')) {
+            item.url = item.url + "@1280w_1l_2o_100sh.png";
+          } else {
+            item.url = item.url + "@1280w_1l_2o_100sh.jpg";
+          }
+          return item;
+        });
+
+        var content = template('content-work-templ', product);
+        $('.js-work-content').append(content);
+        $('#ajaxfeed-loading').remove();
+        $('.photo-box').off('mouseover').off('mouseout');
+        photoInfoEvent();
+        $(".no-right-key").off('mousedown')
+        titleTips($(".no-right-key"), rightKey, 0, 25);
+        // const largerSwiperSlide = template('larger-swiper-slide-templ', product)
+        // $('#lightbox-img-wrap .swiper-wrapper').append(largerSwiperSlide)
+      }
+      isImagesLoading = false;
+    }).catch(function (err) {
+      pageToastFail(err.msg);
+    });
+  }
+};
+
+$(function () {
+  // 边栏点赞列表投放到回到顶部区域
+  $('.js-sidebar-fixed').prepend($('.js-details-sidebar'));
+
+  // 吸顶效果 在main.js中定义
+  pDefaultHFixed(function () {
+    if ($(document).scrollTop() >= $('.work-details-content').offset().top && $(document).scrollTop() <= $('.recommend-box').offset().top) {
+      return true;
+    } else {
+      return false;
+    }
+  }, $('.is-offset-fixed-wrap'));
+
+  if (!getCookieKey('firstrecommend')) {
+    $('#sidebar-recommend').addClass('isfirst-show').find('.sidebar-fixed_warm-prompt').text(messagesWeb["details"].Like_here);
+    setCookies_withDomain('firstrecommend', '1', zRootDomain);
+  }
+
+  $('.isfirst-show').on('mouseover', function () {
+    $(this).find('.sidebar-fixed_warm-prompt').text(messagesWeb["details"].recommended_work).hide();
+    $(this).off('mouseover');
+  });
+
+  $('.isfirst-show').on('mouseout', function () {
+    $(this).find('.sidebar-fixed_warm-prompt').removeAttr('style');
+    $(this).off('mouseout').removeClass('isfirst-show');
+  });
+});
+
+$('#sidebar-recommend').on('click', function () {
+  if ($(this).hasClass('active')) return false;
+  ZcRecommend.doRecommend('sidebar-recommend', function (domId) {
+    recommendPlayingAnimation($('#sidebar-recommend'));
+    mainStationRecommend('detail-recommend-div');
+    if (getUid() <= 0) {
+      $('#sidebar-recommend').find('.unlogin-recommended-tips').fadeIn('fast');
+      setTimeout(function () {
+        $('#sidebar-recommend').find('.unlogin-recommended-tips').fadeOut('fast');
+        hoverFn();
+      }, 5000);
+    }
+  });
+});
+
+// $(".js-scroll-wrap").mCustomScrollbar({
+//     theme: "dark", //主题颜色
+//     scrollButtons: {
+//         scrollSpeed: 100,
+//         enable: true //是否使用上下滚动按钮
+//     },
+//     autoHideScrollbar: true, //是否自动隐藏滚动条
+//     scrollInertia: 100, //滚动延迟
+//     horizontalScroll: false, //水平滚动条
+//     autoDraggerLength: true,
+//     callbacks: {
+//         onScrollStart: function(){
+//             $('.mCS-autoHide .mCustomScrollBox .mCSB_scrollTools').css({"opacity":'1','-webkit-animation':'none'})
+//         }, 
+//         whileScrolling:function(){
+//             $('.mCS-autoHide .mCustomScrollBox .mCSB_scrollTools').css({"opacity":'1','-webkit-animation':'none'})
+//         },
+//         onScroll:function(){
+//             //滚动完成后触发事件
+//             $('.mCS-autoHide .mCustomScrollBox .mCSB_scrollTools').removeAttr('style')
+//         }
+//     }
+// });
+
+
+//lazy load image
+// function lazyLoadImage(num) {
+//   var num = num || 0;
+//   var deferreds = [];
+//   var i = 0;
+//   var batchNum = 0;
+//   var loadNumPerTime = 3;
+//   var headNumUncontrol = 3;
+//   var initScreenWidth = $(window).width() > 1600 ? 1280 : 1130;
+
+//   $('.lazy-img-class').each(function(index, ele) {
+//     var $this = this;
+
+//     // init blur image screen width
+//     if ($($this).data('width') > initScreenWidth) {
+//       $('.reveal-work-wrap').eq(index + headNumUncontrol).find('img').width(initScreenWidth);
+//     } else {
+//       $('.reveal-work-wrap').eq(index + headNumUncontrol).find('img').width($($this).data('width'));
+//     }
+
+//     batchNum = Math.floor(index / loadNumPerTime);
+
+//     if (batchNum === num) {
+//       deferreds.push(new $.Deferred());
+//       var img = new Image();
+//       img.src = $($this).data('src');
+//       img.onload = function() {
+//         $($this).attr('src', $($this).data('src'));
+//       };
+//       img.onerror = function() {
+//         $($this).attr('src', $($this).data('src'));
+//       };
+//     }
+
+//     // When image is loaded, resolve the next deferred
+//     $($this).load(function() {
+//       if (!deferreds[i]) return;
+//       deferreds[i].resolve();
+//       i++;
+//     }).error(function() {
+//       if (!deferreds[i]) return;
+//       deferreds[i].reject();
+//       i++;
+//     });
+//   });
+
+//   // When all deferreds are done (all images loaded) do some stuff
+//   $.when.apply(null, deferreds).done(function() {
+//     if (num < batchNum) lazyLoadImage(num + 1);
+//   });
+// }
+// lazyLoadImage();
+
+
+// function getMyCollectAsync(objectId, objectType, getMyCollectSuccessCallback) {
+//   $.ajax({
+//       type: "get",
+//       url: proMainZDomain + "/collections/content/collect?objectId=" + objectId + "&objectType=" + objectType + "&p=1",
+//       xhrFields: {
+//           withCredentials: true
+//       },
+//       crossDomain: true,
+//       headers: {
+//           "X-Requested-With": "XMLHttpRequest"
+//       },
+//       dataType: "json",
+//       success: function success(data) {
+//           getMyCollectSuccessCallback(data);
+//       }
+//   });
+// }
+// var includeAlbumFlag = true;
+// $('.js-tab-module span.show-tab-title').on('click', function () {
+//     var thisIndex = $(this).index();
+//     var toggleEle = $('.js-other-work-wrap').find('.js-toggle-module');
+//     var objectId = $('#dataInput').attr('data-objid');
+//     var objectType = $('#dataInput').attr('data-objtype');
+//     toggleEle.hide();
+//     $(this).addClass('current').siblings('.show-tab-title').removeClass('current');
+//     toggleEle.eq(thisIndex).show();
+
+//     if (thisIndex == 1) {
+//         $('.js-tab-module .view-more').addClass('hide');
+//         // 所属专辑
+//         if(includeAlbumFlag == true){
+//           $('.included-album-wrap').html(LoaddingDom)
+//           getMyCollectAsync(objectId,objectType,getMyCollectSuccessCallback)
+//             function getMyCollectSuccessCallback(data){
+//               if (data.code == 0) {
+
+//                   if (data.data == 0) {
+//                     // 该内容还没有被任何收藏夹收录
+//                       $(".included-album-wrap").html('<div class="js-al-empty-status bg-box-radius">' + messagesWeb.workDetails.related_fav_null + '</div>');
+//                   } else {
+//                       var data = data.data;
+//                       var eachListHtml = "";
+//                       var IncludeAlbumHtml = '<ul class="details-album-box">';
+//                           $.each(data,function (i, v) {
+//                             eachListHtml += '<li>' +
+//                                   '<a href="' + v.pageUrl + '" title="' + v.name + '" class="album-card">';
+//                                   for (j = 0; j < 4; j++) {
+//                                       if (!v.covers[j]) {
+//                                           eachListHtml += '<div class="details-album-placeholder"></div>'
+//                                       } else {
+//                                         eachListHtml += '<div class="details-album-aspect"><img src="' + v.covers[j] + '@260w_195h_1c_1e_1o_100sh.jpg" alt=""></div>'
+//                                       }
+
+//                                   }
+
+//                             // eachListHtml += ' <div class="card-mask"><div class="card-album-title">' + v.name + '</div></div></a>' +
+//                             //       '</li>'
+//                              eachListHtml += '</a>' +
+//                                     '<div class="mt-10">' + 
+//                                         '<a href="' + v.pageUrl + '" class="tab-work-name link">' +  v.name  + '</a>' +
+//                                     '</div>' +
+//                                 '</li>'
+//                           })
+
+//                       IncludeAlbumHtml += eachListHtml;
+//                       IncludeAlbumHtml += '</ul>' +
+//                           '<div class="album-block-more">' +
+//                           '<a href="' + proMainZDomain + '/collections/content/collect?objectId=' + objectId + '&objectType=' + objectType + '" target="_blank" title="' + messagesWeb.common_view_more + '">' + messagesWeb.common_view_more + '</a>' +
+//                           '</div>';
+
+//                       // var alListHtml = template('icl-al-tpl', data);
+//                       $(".included-album-wrap").html(IncludeAlbumHtml);
+//                   }
+//                   $('#ajaxfeed-loading').remove();
+//                   includeAlbumFlag = false;
+//               } else {
+//                 includeAlbumFlag = true;
+//               }
+//             }
+//         }
+
+//     } else {
+
+//         $('.js-tab-module .view-more').removeClass('hide');
+//     }
+// })
+
+// $('.follow-box,.js-details-show-avainfo').on('click', '.attention', function () {
+//     var followBtn = $(this);
+//     var isUnFollowStatus = createFollow.followstatus(followBtn);
+//     var succesCb;
+//     var errorCb;
+//     var Follow;
+//     var isLogined = islogin();
+//     var objectType = 1;
+//     var objectId = creatorId;
+//     if (isUnFollowStatus) {
+//         succesCb = function succesCb(followStatus) {
+//             settingFollow(followStatus, $(".follow-box .attention,.work-details-box-wrap .attention"));
+//         }; //前端实现
+//         errorCb = function errorCb(msg) {
+//             pageToastFail(msg);
+//             cancelLoadingFocusDis(followBtn);
+//             if (followBtn.attr('data-val')) {
+//                 followBtn.val(followBtn.attr('data-val'));
+//             }
+//         }; //前端实现
+
+//         Follow = new createFollow(objectId, objectType, succesCb, errorCb, isUnFollowStatus);
+//     } else {
+//         succesCb = function succesCb(followStatus) {
+//             settingFollow(followStatus, $(".follow-box .attention,.work-details-box-wrap .attention"));
+//         }; //前端实现
+//         errorCb = function errorCb(msg) {
+//             alert(msg);
+//             cancelLoadingFocusDis(followBtn);
+//             if (followBtn.attr('data-val')) {
+//                 followBtn.val(followBtn.attr('data-val'));
+//             }
+//         }; //前端实现
+
+//         Follow = new createFollow(objectId, objectType, succesCb, errorCb, isUnFollowStatus);
+//     }
+
+//     if (isLogined) {
+//         loadingFocusDis(followBtn);
+//         Follow.doOrCancelFollow();
+//     } else {
+//         //        openLoginWindow(Follow.doOrCancelFollow)
+//         doLocalLogin(function () {
+//             Follow.doOrCancelFollow();
+//         });
+//     }
+// });
